@@ -5,7 +5,7 @@ include(cmake/prelude.cmake)
 project(
   prism
   VERSION 0.1.0
-  DESCRIPTION "A library to help in the development of projects that depend on process interaction via DMA."
+  DESCRIPTION "A Vulkan rendered C++ application framework using GLFW and ImGui."
   LANGUAGES CXX
 )
 
@@ -14,9 +14,11 @@ include(cmake/variables.cmake)
 
 # ---- Declare library ----
 
-add_library(
-  prism_prism
+add_library(prism_prism
+  # Prism
   src/prism.cpp
+  src/window.cpp
+  src/renderer.cpp
 )
 add_library(prism::prism ALIAS prism_prism)
 
@@ -56,8 +58,22 @@ target_include_directories(
 
 target_compile_features(prism_prism PUBLIC cxx_std_20)
 
+# Link dependencies
 find_package(fmt REQUIRED)
 target_link_libraries(prism_prism PRIVATE fmt::fmt)
+
+find_package(glfw3 REQUIRED)
+target_link_libraries(prism_prism PRIVATE glfw)
+
+find_package(Freetype REQUIRED)
+target_link_libraries(prism_prism PRIVATE Freetype::Freetype)
+
+find_package(imgui CONFIG REQUIRED)
+target_link_libraries(prism_prism PRIVATE imgui::imgui)
+
+find_package(Vulkan REQUIRED)
+target_include_directories(prism_prism PRIVATE ${Vulkan_INCLUDE_DIRS})
+target_link_libraries(prism_prism PRIVATE ${Vulkan_LIBRARIES})
 
 # Prevent windows.h from including winsock.h (for kmbox code)
 add_definitions(-D_WINSOCKAPI_)

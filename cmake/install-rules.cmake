@@ -34,14 +34,6 @@ install(
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
-
-# Install the external .lib files
-install(
-    FILES "${PROJECT_SOURCE_DIR}/lib/vmm.lib" "${PROJECT_SOURCE_DIR}/lib/leechcore.lib"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    COMPONENT prism_Development
-)
-
 write_basic_package_version_file(
     "${package}ConfigVersion.cmake"
     COMPATIBILITY SameMajorVersion
