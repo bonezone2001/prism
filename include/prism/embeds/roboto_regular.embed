@@ -1,3 +1,11 @@
+/**
+ * @file roboto_regular.embed
+ * @author Kyle Pelham
+ * @brief Embedded font data for Roboto Regular
+ * 
+ * @copyright Copyright (c) 2024
+*/
+
 #pragma once
 
 namespace Prism::Fonts {

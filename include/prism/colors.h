@@ -1,3 +1,11 @@
+/**
+ * @file colors.h
+ * @author Kyle Pelham
+ * @brief Defines a set of colors for use in Prism.
+ * 
+ * @copyright Copyright (c) 2024
+*/
+
 #pragma once
 #include "imgui.h"
 

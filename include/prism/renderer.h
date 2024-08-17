@@ -68,7 +68,8 @@ public:
     */
     static void CheckVkResult(VkResult result);
 
-    // Getter methods
+    // Getters & Setters
+    // -------------------------------------------------------------------------
     inline VkInstance getInstance() const { return instance; }                      ///< @return Vulkan instance.
     inline VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }    ///< @return Vulkan physical device.
     inline VkAllocationCallbacks* getAllocator() const { return allocator; }        ///< @return Vulkan memory allocator.
@@ -80,6 +81,8 @@ public:
 
 
 private:
+    // Internal Methods
+    // -------------------------------------------------------------------------
     /**
      * Cleans up and releases Vulkan resources.
      * 
@@ -129,7 +132,7 @@ private:
     void createDescriptorPool();
 
     /**
-     * @brief Callback for Vulkan debug reports.
+     * Callback for Vulkan debug reports.
      * 
      * This static method serves as a callback for Vulkan's debugging layer,
      * capturing errors and warnings during runtime.

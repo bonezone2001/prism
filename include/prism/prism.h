@@ -33,6 +33,18 @@ public:
     virtual ~Application();
 
     /**
+     * Getter for the Application singleton object.
+     * @return Application& The global Application object.
+    */
+    static Application& Get();
+
+    /**
+     * Initialize the application.
+     * This should be called in the constructor.
+    */
+    virtual void init();
+
+    /**
      * Run the application.
      * This will spawn the main loop for the application and show any windows.
     */
@@ -40,21 +52,9 @@ public:
 
     /**
      * Stop the application.
+     * This will set the running flag to false, causing the application to exit on the next iteration.
     */
     virtual void stop();
-
-    /**
-     * Check if the application is running.
-     * @return true Main window is open & App not told to stop.
-     * @return false Main window has been closed or App told to stop.
-    */
-    bool isRunning() const;
-
-    /**
-     * Gets the renderer for the application.
-     * @return std::shared_ptr<Renderer> The renderer for the application.
-    */
-    std::shared_ptr<Renderer> getRenderer() const;
 
     /**
      * Add a window to the application's window stack.
@@ -72,18 +72,12 @@ public:
         appWindows.emplace_back(std::make_shared<T>(std::forward<Args>(args)...));
     }
 
-public:
-    /**
-     * Initialize the application.
-     * This should be called in the constructor.
-    */
-    virtual void init();
-
-    /**
-     * Getter for the Application singleton object.
-     * @return Application& The global Application object.
-    */
-    static Application& Get();
+    // Getters
+    // -------------------------------------------------------------------------
+    bool isRunning() const { return running; }                                      ///< @return bool Is the application running?
+    std::shared_ptr<Renderer> getRenderer() const { return renderer; }              ///< @return std::shared_ptr<Renderer> The renderer for the application.
+    std::string getName() const { return name; }                                    ///< @return std::string The name of the application.
+    std::vector<std::shared_ptr<Window>> getWindows() const { return appWindows; }  ///< @return std::vector<std::shared_ptr<Window>> The windows in the application.
 
 private:
     /**

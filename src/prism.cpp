@@ -13,7 +13,9 @@
 
 Prism::Application* Prism::Application::instance = nullptr;
 
-Prism::Application::Application(std::string name)
+namespace Prism {
+
+Application::Application(std::string name)
 {
     // Always assume that any given instance of an application is the main instance.
     // As there should only ever be one instance of an application.
@@ -23,14 +25,14 @@ Prism::Application::Application(std::string name)
     init();
 }
 
-Prism::Application::~Application()
+Application::~Application()
 {
     stop();                 // Stop the application
     renderer.reset();       // Destroy the renderer
     appWindows.clear();     // Destroy the windows
 }
 
-void Prism::Application::run()
+void Application::run()
 {
     if (!running) return;
     while (running) {
@@ -44,19 +46,19 @@ void Prism::Application::run()
     }
 }
 
-void Prism::Application::stop()
+void Application::stop()
 {
     running = false;
 }
 
-void Prism::Application::shutdown()
+void Application::shutdown()
 {
     // Delete self to trigger the destructors
     // We'll come back to this later, this'll do for now.
     delete this;
 }
 
-void Prism::Application::cullClosedWindowsExitOnMainDeath()
+void Application::cullClosedWindowsExitOnMainDeath()
 {
     for (size_t i = 0; i < appWindows.size(); i++) {
         if (appWindows[i]->shouldClose()) {
@@ -72,7 +74,7 @@ void Prism::Application::cullClosedWindowsExitOnMainDeath()
     }
 }
 
-void Prism::Application::init()
+void Application::init()
 {
     // Initialize GLFW
     glfwSetErrorCallback(Window::GlfwErrorCallback);
@@ -91,17 +93,9 @@ void Prism::Application::init()
     renderer = std::make_shared<Renderer>();
 }
 
-bool Prism::Application::isRunning() const
-{
-    return running;
-}
-
-std::shared_ptr<Prism::Renderer> Prism::Application::getRenderer() const
-{
-    return renderer;
-}
-
-Prism::Application& Prism::Application::Get()
+Application& Application::Get()
 {
     return *instance;
 }
+
+} // namespace Prism

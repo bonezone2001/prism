@@ -1,3 +1,11 @@
+/**
+ * @file roboto_bold.embed
+ * @author Kyle Pelham
+ * @brief Embedded font data for Roboto Bold
+ * 
+ * @copyright Copyright (c) 2024
+*/
+
 #pragma once
 
 namespace Prism::Fonts {

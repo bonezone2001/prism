@@ -4,12 +4,11 @@
  * @brief Just a simple entry point for the Prism application framework.
  * 
  * You can completely ignore this file and implement your own entry point if you wish.
- * 
- * @version 0.1
- * @date 2024-08-09
+ * The Prism::AppCreate function doesn't do anything by itself, it's just there for the
+ * entry point in this file to call. So use the provided entry point as a reference if
+ * you want to implement your own.
  * 
  * @copyright Copyright (c) 2024
- * 
 */
 
 #pragma once
