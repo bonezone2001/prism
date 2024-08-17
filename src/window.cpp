@@ -10,6 +10,7 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #endif
 
+#include "imgui_internal.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
@@ -27,16 +28,24 @@
 #include "prism/fa_embedings.h"
 #endif
 
+// I will hopefully someday remove this stuff
+#include "prism/imgui_rip.h"
+static void UpdateKeyModifiers(GLFWwindow* glfwWindow);
+
 std::unordered_map<HWND, WNDPROC> Prism::Window::wndProcMap;
 
-Prism::Window::Window(WindowSettings settings) :
+namespace Prism {
+
+Window::Window(WindowSettings settings) :
     settings(settings)
 {
     VkResult err;
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // We want contextless windows. We're using Vulkan.
 
     // Create ImGui window instance
     imguiWindow = new ImGui_ImplVulkanH_Window();
+
+    // We want a contextless window since we're using Vulkan.
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     // Get the monitor the parent window is on. If there is no parent, use the primary monitor.
     GLFWmonitor* monitor = nullptr;
@@ -52,6 +61,7 @@ Prism::Window::Window(WindowSettings settings) :
 
     // Create the window
     windowHandle = glfwCreateWindow(settings.width, settings.height, settings.title.c_str(), settings.fullscreen ? monitor : nullptr, nullptr);
+    glfwSetWindowUserPointer(windowHandle, this);
 
     // Set the window position
     // I should probably add a method of falling back to default os window positioning.
@@ -69,7 +79,7 @@ Prism::Window::Window(WindowSettings settings) :
     glfwSetWindowUserPointer(windowHandle, this);
 
     // Setup the vulkan context for the window.
-    std::shared_ptr<Prism::Renderer> renderer = Application::Get().getRenderer();
+    std::shared_ptr<Renderer> renderer = Application::Get().getRenderer();
     VkSurfaceKHR surface;
     err = glfwCreateWindowSurface(renderer->getInstance(), windowHandle, renderer->getAllocator(), &surface);
     Renderer::CheckVkResult(err);
@@ -94,12 +104,13 @@ Prism::Window::Window(WindowSettings settings) :
     ImGui::SetCurrentContext(imguiContext);
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;   // Enable Keyboard navigation Controls
+    io.IniFilename = nullptr;                               // Disable the ImGui .ini file by default. TODO: Add support for this later.
 
     // Setup our custom ImGui style
     setDefaultTheme();
 
     // Setup renderer backends
-    ImGui_ImplGlfw_InitForVulkan(windowHandle, true);
+    ImGui_ImplGlfw_InitForVulkan(windowHandle, false);
     ImGui_ImplVulkan_InitInfo initInfo = {};
     initInfo.Instance = renderer->getInstance();
     initInfo.PhysicalDevice = renderer->getPhysicalDevice();
@@ -116,23 +127,27 @@ Prism::Window::Window(WindowSettings settings) :
     initInfo.CheckVkResultFn = Renderer::CheckVkResult;
     ImGui_ImplVulkan_Init(&initInfo, imguiWindow->RenderPass);
 
+    // Setup the window callbacks
+    // TODO: This really needs some work
+    installGlfwCallbacks();
+
     // Load default font merged with font awesome
     ImFontConfig fontConfig;
     fontConfig.FontDataOwnedByAtlas = false;
 
     // Roboto font
-    ImFont* robotoFont = io.Fonts->AddFontFromMemoryTTF((void*)Prism::Fonts::robotoRegular, sizeof(Prism::Fonts::robotoRegular), 20.f, &fontConfig);
+    ImFont* robotoFont = io.Fonts->AddFontFromMemoryTTF((void*)Fonts::robotoRegular, sizeof(Fonts::robotoRegular), 20.f, &fontConfig);
     loadedFonts["default"] = robotoFont;
-    loadedFonts["bold"] = io.Fonts->AddFontFromMemoryTTF((void*)Prism::Fonts::robotoBold, sizeof(Prism::Fonts::robotoBold), 20.0f, &fontConfig);
-    loadedFonts["italic"] = io.Fonts->AddFontFromMemoryTTF((void*)Prism::Fonts::robotoItalic, sizeof(Prism::Fonts::robotoItalic), 20.0f, &fontConfig);
+    loadedFonts["bold"] = io.Fonts->AddFontFromMemoryTTF((void*)Fonts::robotoBold, sizeof(Fonts::robotoBold), 20.0f, &fontConfig);
+    loadedFonts["italic"] = io.Fonts->AddFontFromMemoryTTF((void*)Fonts::robotoItalic, sizeof(Fonts::robotoItalic), 20.0f, &fontConfig);
 
     // Font awesome
 #ifndef PRISM_EXCLUDE_FA
     static const ImWchar faRanges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
-    fontConfig.MergeMode = true; // Merge icon font with the default font
+    fontConfig.MergeMode = true;         // Merge icon font with the default font
     fontConfig.GlyphMinAdvanceX = 20.0f; // Ensure icons are rendered with a similar size as the font
-    fontConfig.PixelSnapH = true; // Align icons on pixel boundaries
-    io.Fonts->AddFontFromMemoryCompressedTTF((void*)Prism::Fonts::fontAwesome, sizeof(Prism::Fonts::fontAwesome), 20.0f, &fontConfig, faRanges);
+    fontConfig.PixelSnapH = true;        // Align icons on pixel boundaries
+    io.Fonts->AddFontFromMemoryCompressedTTF((void*)Fonts::fontAwesome, sizeof(Fonts::fontAwesome), 20.0f, &fontConfig, faRanges);
 #endif
     io.FontDefault = robotoFont;
     io.Fonts->Build();
@@ -145,11 +160,11 @@ Prism::Window::Window(WindowSettings settings) :
         glfwShowWindow(windowHandle);
 
     // Restore the previous contexts
-    // TODO: This isn't really doing what I expected. I'll have to come back to this.
+    // TODO: Is this really doing what I'm expecting? I'll have to come back to this.
     if (backupImGuiContext) ImGui::SetCurrentContext(backupImGuiContext);
 }
 
-Prism::Window::~Window()
+Window::~Window()
 {
     // Set current context
     ImGuiContext* backupContext = ImGui::GetCurrentContext();
@@ -168,7 +183,7 @@ Prism::Window::~Window()
     delete imguiWindow;
 }
 
-void Prism::Window::render()
+void Window::render()
 {
     // Swap contexts
     ImGuiContext* backupContext = ImGui::GetCurrentContext();
@@ -208,43 +223,43 @@ void Prism::Window::render()
     if (backupContext) ImGui::SetCurrentContext(backupContext);
 }
 
-void Prism::Window::renderAndPresent(ImDrawData* drawData)
+void Window::renderAndPresent(ImDrawData* drawData)
 {
     frameRender(drawData);
     framePresent();
 }
 
-bool Prism::Window::isShown() const
+bool Window::isShown() const
 {
     return glfwGetWindowAttrib(windowHandle, GLFW_VISIBLE);
 }
 
-bool Prism::Window::isFocused() const
+bool Window::isFocused() const
 {
     return glfwGetWindowAttrib(windowHandle, GLFW_FOCUSED);
 }
 
-bool Prism::Window::isMinimized() const
+bool Window::isMinimized() const
 {
     return glfwGetWindowAttrib(windowHandle, GLFW_ICONIFIED);
 }
 
-bool Prism::Window::isMaximized() const
+bool Window::isMaximized() const
 {
     return glfwGetWindowAttrib(windowHandle, GLFW_MAXIMIZED);
 }
 
-bool Prism::Window::shouldClose() const
+bool Window::shouldClose() const
 {
     return glfwWindowShouldClose(windowHandle);
 }
 
-void Prism::Window::close()
+void Window::close()
 {
     glfwSetWindowShouldClose(windowHandle, true);
 }
 
-void Prism::Window::setDefaultTheme()
+void Window::setDefaultTheme()
 {
     auto& style = ImGui::GetStyle();
     auto& colors = style.Colors;
@@ -330,11 +345,23 @@ void Prism::Window::setDefaultTheme()
     colors[ImGuiCol_MenuBarBg] = ImVec4{ 0, 0, 0, 0 };
 }
 
-void Prism::Window::frameRender(ImDrawData* drawData)
+void Window::installGlfwCallbacks()
+{
+    glfwSetWindowFocusCallback(windowHandle, WindowFocusCallback);
+    glfwSetCursorEnterCallback(windowHandle, CursorEnterCallback);
+    glfwSetCursorPosCallback(windowHandle, CursorPosCallback);
+    glfwSetMouseButtonCallback(windowHandle, MouseButtonCallback);
+    glfwSetScrollCallback(windowHandle, ScrollCallback);
+    glfwSetCharCallback(windowHandle, CharCallback);
+    glfwSetKeyCallback(windowHandle, KeyCallback);
+    glfwSetMonitorCallback(MonitorCallback);
+}
+
+void Window::frameRender(ImDrawData* drawData)
 {
     VkResult err;
 
-    auto renderer = Prism::Application::Get().getRenderer();
+    auto renderer = Application::Get().getRenderer();
     VkSemaphore imageAcquiredSemaphore = imguiWindow->FrameSemaphores[imguiWindow->SemaphoreIndex].ImageAcquiredSemaphore;
     VkSemaphore renderCompleteSemaphore = imguiWindow->FrameSemaphores[imguiWindow->SemaphoreIndex].RenderCompleteSemaphore;
     err = vkAcquireNextImageKHR(renderer->getDevice(), imguiWindow->Swapchain, UINT64_MAX, imageAcquiredSemaphore, VK_NULL_HANDLE, &imguiWindow->FrameIndex);
@@ -343,7 +370,7 @@ void Prism::Window::frameRender(ImDrawData* drawData)
         swapchainNeedRebuild = true;
 		return;
 	}
-    Prism::Renderer::CheckVkResult(err);
+    Renderer::CheckVkResult(err);
 
     // Increase the frame index
     // currentFrameIndex = (currentFrameIndex + 1) % imguiWindow->ImageCount;
@@ -351,11 +378,11 @@ void Prism::Window::frameRender(ImDrawData* drawData)
     // Wait for the fence to be signaled, which indicates the previous frame using this image is done
     ImGui_ImplVulkanH_Frame* fd = &imguiWindow->Frames[imguiWindow->FrameIndex];
     err = vkWaitForFences(renderer->getDevice(), 1, &fd->Fence, VK_TRUE, UINT64_MAX);
-    Prism::Renderer::CheckVkResult(err);
+    Renderer::CheckVkResult(err);
 
     // Reset the fence for use in the next frame
     err = vkResetFences(renderer->getDevice(), 1, &fd->Fence);
-    Prism::Renderer::CheckVkResult(err);
+    Renderer::CheckVkResult(err);
 
     // Free resources in queue
     for (auto& func : resourceFreeQueue[imguiWindow->FrameIndex]) {
@@ -370,13 +397,13 @@ void Prism::Window::frameRender(ImDrawData* drawData)
     }
 
     err = vkResetCommandPool(renderer->getDevice(), fd->CommandPool, 0);
-    Prism::Renderer::CheckVkResult(err);
+    Renderer::CheckVkResult(err);
 
     VkCommandBufferBeginInfo buffBeginInfo = {};
     buffBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     buffBeginInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     err = vkBeginCommandBuffer(fd->CommandBuffer, &buffBeginInfo);
-    Prism::Renderer::CheckVkResult(err);
+    Renderer::CheckVkResult(err);
     
     VkRenderPassBeginInfo renderBeginInfo = {};
     renderBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -405,16 +432,16 @@ void Prism::Window::frameRender(ImDrawData* drawData)
     submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
 
     err = vkEndCommandBuffer(fd->CommandBuffer);
-    Prism::Renderer::CheckVkResult(err);
+    Renderer::CheckVkResult(err);
 
     err = vkQueueSubmit(renderer->getQueue(), 1, &submitInfo, fd->Fence);
-		Prism::Renderer::CheckVkResult(err);
+		Renderer::CheckVkResult(err);
 }
 
-void Prism::Window::framePresent()
+void Window::framePresent()
 {
 	if (swapchainNeedRebuild) return;
-    auto renderer = Prism::Application::Get().getRenderer();
+    auto renderer = Application::Get().getRenderer();
 	
     VkSemaphore renderCompleteSemaphore = imguiWindow->FrameSemaphores[imguiWindow->SemaphoreIndex].RenderCompleteSemaphore;
 	VkPresentInfoKHR info = {};
@@ -431,12 +458,12 @@ void Prism::Window::framePresent()
         swapchainNeedRebuild = true;
 		return;
 	}
-	Prism::Renderer::CheckVkResult(err);
+	Renderer::CheckVkResult(err);
 
 	imguiWindow->SemaphoreIndex = (imguiWindow->SemaphoreIndex + 1) % imguiWindow->SemaphoreCount;
 }
 
-void Prism::Window::setupForCustomTitlebar()
+void Window::setupForCustomTitlebar()
 {
 #ifdef _WIN32
         HWND hWnd = glfwGetWin32Window(windowHandle);
@@ -459,16 +486,16 @@ void Prism::Window::setupForCustomTitlebar()
 #endif
 }
 
-void Prism::Window::GlfwErrorCallback(int error, const char* description)
+void Window::GlfwErrorCallback(int error, const char* description)
 {
     fmt::print("GLFW Error {}: {}\n", error, description);
 }
 
 #ifdef _WIN32
-LRESULT Prism::Window::CustomWindowProc(HWND hWnd,
-                                        UINT uMsg,
-                                        WPARAM wParam,
-                                        LPARAM lParam)
+LRESULT Window::CustomWindowProc(HWND hWnd,
+                                 UINT uMsg,
+                                 WPARAM wParam,
+                                 LPARAM lParam)
 {
     switch (uMsg) {
         case WM_NCCALCSIZE:
@@ -529,3 +556,122 @@ LRESULT Prism::Window::CustomWindowProc(HWND hWnd,
     return CallWindowProc(wndProcMap[hWnd], hWnd, uMsg, wParam, lParam);
 }
 #endif
+
+void Window::WindowFocusCallback(GLFWwindow* glfwWindow, int focused)
+{
+    Window* window = (Window*)glfwGetWindowUserPointer(glfwWindow);
+    window->getImGuiContext()->IO.AddFocusEvent(focused != 0);
+}
+
+void Window::CursorEnterCallback(GLFWwindow* glfwWindow, int entered)
+{
+    if (glfwGetInputMode(glfwWindow, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
+        return;
+    Window* window = (Window*)glfwGetWindowUserPointer(glfwWindow);
+    ImGuiIO& io = window->getImGuiContext()->IO;
+    ImGui_ImplGlfw_Data* bd = (ImGui_ImplGlfw_Data*)io.BackendPlatformUserData;
+
+    if (entered) {
+        bd->MouseWindow = glfwWindow;
+        io.AddMousePosEvent(bd->LastValidMousePos.x, bd->LastValidMousePos.y);
+    }
+    else if (!entered && bd->MouseWindow == glfwWindow) {
+        bd->LastValidMousePos = io.MousePos;
+        bd->MouseWindow = nullptr;
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+    }
+}
+
+void Window::CursorPosCallback(GLFWwindow* glfwWindow, double x, double y)
+{
+    if (glfwGetInputMode(glfwWindow, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
+        return;
+
+    Window* window = (Window*)glfwGetWindowUserPointer(glfwWindow);
+    ImGuiIO& io = window->getImGuiContext()->IO;
+    ImGui_ImplGlfw_Data* bd = (ImGui_ImplGlfw_Data*)io.BackendPlatformUserData;
+
+    io.AddMousePosEvent((float)x, (float)y);
+    bd->LastValidMousePos = ImVec2((float)x, (float)y);
+}
+
+void Window::MouseButtonCallback(GLFWwindow* glfwWindow,
+                                 int button,
+                                 int action,
+                                 int mods)
+{
+    Window* window = (Window*)glfwGetWindowUserPointer(glfwWindow);
+    ImGuiIO& io = window->getImGuiContext()->IO;
+    ImGui_ImplGlfw_Data* bd = (ImGui_ImplGlfw_Data*)io.BackendPlatformUserData;
+
+    UpdateKeyModifiers(glfwWindow);
+
+    if (button >= 0 && button < ImGuiMouseButton_COUNT)
+        io.AddMouseButtonEvent(button, action == GLFW_PRESS);
+}
+
+void Window::ScrollCallback(GLFWwindow* glfwWindow,
+                            double xoffset,
+                            double yoffset)
+{
+
+    Window* window = (Window*)glfwGetWindowUserPointer(glfwWindow);
+    ImGuiIO& io = window->getImGuiContext()->IO;
+    io.AddMouseWheelEvent((float)xoffset, (float)yoffset);
+}
+
+void Window::KeyCallback(GLFWwindow* glfwWindow,
+                         int keycode,
+                         int scancode,
+                         int action,
+                         int mods)
+{
+    Window* window = (Window*)glfwGetWindowUserPointer(glfwWindow);
+    ImGuiIO& io = window->getImGuiContext()->IO;
+    ImGui_ImplGlfw_Data* bd = (ImGui_ImplGlfw_Data*)io.BackendPlatformUserData;
+
+    if (action != GLFW_PRESS && action != GLFW_RELEASE)
+        return;
+
+    UpdateKeyModifiers(glfwWindow);
+
+    if (keycode >= 0 && keycode < IM_ARRAYSIZE(bd->KeyOwnerWindows))
+        bd->KeyOwnerWindows[keycode] = (action == GLFW_PRESS) ? glfwWindow : nullptr;
+
+    keycode = TranslateUntranslatedKey(keycode, scancode);
+
+    ImGuiKey imguiKey = KeyToImGuiKey(keycode);
+    io.AddKeyEvent(imguiKey, (action == GLFW_PRESS));
+    io.SetKeyEventNativeData(imguiKey, keycode, scancode); // To support legacy indexing (<1.87 user code)
+}
+
+void Window::CharCallback(GLFWwindow* glfwWindow, unsigned int c)
+{
+    Window* window = (Window*)glfwGetWindowUserPointer(glfwWindow);
+    ImGuiIO& io = window->getImGuiContext()->IO;
+    io.AddInputCharacter(c);
+}
+
+void Window::MonitorCallback(GLFWmonitor* monitor, int event)
+{
+    std::vector<std::shared_ptr<Window>> windows = Application::Get().getWindows();
+    for (auto& window : windows) {
+        ImGui_ImplGlfw_Data* bd = (ImGui_ImplGlfw_Data*)window->getImGuiContext()->IO.BackendPlatformUserData;
+        bd->WantUpdateMonitors = true;
+    }
+}
+
+} // namespace Prism
+
+// from imgui_impl_glfw.cpp
+static void UpdateKeyModifiers(GLFWwindow* glfwWindow)
+{
+    Prism::Window* window = (Prism::Window*)glfwGetWindowUserPointer(glfwWindow);
+    ImGuiIO& io = window->getImGuiContext()->IO;
+    ImGui_ImplGlfw_Data* bd = (ImGui_ImplGlfw_Data*)io.BackendPlatformUserData;
+
+    io.AddKeyEvent(ImGuiMod_Ctrl,  (glfwGetKey(bd->Window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) || (glfwGetKey(bd->Window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS));
+    io.AddKeyEvent(ImGuiMod_Shift, (glfwGetKey(bd->Window, GLFW_KEY_LEFT_SHIFT)   == GLFW_PRESS) || (glfwGetKey(bd->Window, GLFW_KEY_RIGHT_SHIFT)   == GLFW_PRESS));
+    io.AddKeyEvent(ImGuiMod_Alt,   (glfwGetKey(bd->Window, GLFW_KEY_LEFT_ALT)     == GLFW_PRESS) || (glfwGetKey(bd->Window, GLFW_KEY_RIGHT_ALT)     == GLFW_PRESS));
+    io.AddKeyEvent(ImGuiMod_Super, (glfwGetKey(bd->Window, GLFW_KEY_LEFT_SUPER)   == GLFW_PRESS) || (glfwGetKey(bd->Window, GLFW_KEY_RIGHT_SUPER)   == GLFW_PRESS));
+}

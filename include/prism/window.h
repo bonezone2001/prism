@@ -27,13 +27,13 @@
 #endif
 
 struct GLFWwindow;
+struct GLFWmonitor;
 struct ImGuiContext;
 struct ImGui_ImplVulkanH_Window;
 struct ImDrawData;
 struct ImFont;
 
-namespace Prism
-{
+namespace Prism {
 
 /**
  * @struct WindowSettings
@@ -68,8 +68,8 @@ protected:
     std::vector<std::vector<std::function<void()>>> resourceFreeQueue;  ///< Queue of resources to free.
 
     ImGui_ImplVulkanH_Window* imguiWindow = nullptr;               ///< Vulkan information specific to ImGui.
-    ImGuiContext* imguiContext = nullptr;                          ///< The ImGui context associated with this window.
     std::unordered_map<std::string, ImFont*> loadedFonts;          ///< Map of loaded ImGui fonts.
+    ImGuiContext* imguiContext = nullptr;                          ///< The ImGui context associated with this window.
 
 private:
     GLFWwindow* windowHandle = nullptr;                            ///< Handle to the GLFW window. (NOT NATIVE HANDLE)
@@ -89,6 +89,30 @@ public:
      * This method is called each frame to render the content of the window using Vulkan.
     */
     void render();
+
+    /**
+     * GLFW callback for errors.
+     * @param error The error code.
+     * @param description A description of the error.
+    */
+    static void GlfwErrorCallback(int error, const char* description);
+    
+    // Getters, Setters & GLFW Method Wrappers
+    // -------------------------------------------------------------------------
+    /**
+     * Closes the window.
+     * 
+     * This method signals that the window should be closed and cleans up resources accordingly.
+     * @note This method does not immediately close the window. It simply sets a flag to close the window.
+     *      The window will be closed during the next frame. Where glfwPollEvents() is called.
+    */
+    void close();
+
+    /**
+     * Checks if the window should close.
+     * @return true if the window wants to close; otherwise, false.
+    */
+    bool shouldClose() const;
 
     /**
      * Checks if the window is currently shown.
@@ -114,28 +138,14 @@ public:
     */
     bool isMaximized() const;
 
-    /**
-     * Checks if the window should close.
-     * @return true if the window wants to close; otherwise, false.
-    */
-    bool shouldClose() const;
+    GLFWwindow* getHandle() const { return windowHandle; }                      ///< @return The GLFW window handle.
+    ImGui_ImplVulkanH_Window* getImGuiWindow() const { return imguiWindow; }    ///< @return The ImGui Vulkan window information.
+    uint32_t getMinImageCount() const { return minImageCount; }                 ///< @return The minimum number of images in the swapchain.
+    ImGuiContext* getImGuiContext() const { return imguiContext; }              ///< @return The ImGui context associated with this window.
 
-    /**
-     * Closes the window.
-     * 
-     * This method signals that the window should be closed and cleans up resources accordingly.
-     * @note This method does not immediately close the window. It simply sets a flag to close the window.
-     *      The window will be closed during the next frame. Where glfwPollEvents() is called.
-    */
-    void close();
-
-    // Getters
-    GLFWwindow* getHandle() const;                  ///< @return The GLFW window handle.
-    ImGui_ImplVulkanH_Window* getImGuiWindow();     ///< @return The ImGui Vulkan window information.
-    uint32_t getMinImageCount();                    ///< @return The minimum number of images in the swapchain.
-    ImGuiContext* getImGuiContext();                ///< @return The ImGui context associated with this window.
-
-protected:
+private:
+    // Internal Methods
+    // -------------------------------------------------------------------------
     /**
      * Applies a custom ImGui theme to the window.
      * 
@@ -162,19 +172,13 @@ protected:
     void renderAndPresent(ImDrawData* drawData);
 
     /**
-     * Called when the window is about to render.
+     * Sets up the native window for use with a custom titlebar.
      * 
-     * Override this method to implement custom update logic before rendering.
+     * It will set the window style to remove the standard titlebar and border.
+     * Then it will set the window procedure to a custom procedure that handles
+     * all the now removed window functionality due to lack of a native titlebar.
     */
-    virtual void onUpdate() {}
-
-
-    /**
-     * Called when the window is rendering.
-     * 
-     * Override this method to implement custom rendering logic.
-    */
-    virtual void onRender() {}
+    void setupForCustomTitlebar();
 
 #ifdef _WIN32
     /**
@@ -197,22 +201,93 @@ protected:
     static LRESULT CALLBACK CustomWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 #endif
 
+    // Custom glfw callbacks
+    // -------------------------------------------------------------------------
     /**
-     * Sets up the native window for use with a custom titlebar.
-     * 
-     * It will set the window style to remove the standard titlebar and border.
-     * Then it will set the window procedure to a custom procedure that handles
-     * all the now removed window functionality due to lack of a native titlebar.
+     * Install custom glfw callbacks.
+     * We use custom ones since the default ImGui ones are not compatible with the multi-context.
     */
-    void setupForCustomTitlebar();
+    void installGlfwCallbacks();
 
-public:
     /**
-     * GLFW callback for errors.
-     * @param error The error code.
-     * @param description A description of the error.
+     * Custom glfw callback for window focus.
+     * @param glfwWindow The glfw window handle that received the event.
+     * @param focused Indicates if the window is focused.
     */
-    static void GlfwErrorCallback(int error, const char* description);
+    static void WindowFocusCallback(GLFWwindow* glfwWindow, int focused);
+
+    /**
+     * Custom glfw callback for cursor enter.
+     * @param glfwWindow The glfw window handle that received the event.
+     * @param entered Indicates if the cursor entered the window.
+    */
+    static void CursorEnterCallback(GLFWwindow* glfwWindow, int entered);
+
+    /**
+     * Custom glfw callback for cursor position.
+     * @param glfwWindow The glfw window handle that received the event.
+     * @param x The x-coordinate of the cursor.
+     * @param y The y-coordinate of the cursor.
+    */
+    static void CursorPosCallback(GLFWwindow* glfwWindow, double x, double y);
+
+    /**
+     * Custom glfw callback for mouse button.
+     * @param glfwWindow The glfw window handle that received the event.
+     * @param button The mouse button that was pressed or released.
+     * @param action The action that was taken.
+     * @param mods The modifier keys that were pressed.
+    */
+    static void MouseButtonCallback(GLFWwindow* glfwWindow, int button, int action, int mods);
+
+    /**
+     * Custom glfw callback for mouse scroll.
+     * @param glfwWindow The glfw window handle that received the event.
+     * @param xoffset The horizontal scroll offset.
+     * @param yoffset The vertical scroll offset.
+    */
+    static void ScrollCallback(GLFWwindow* glfwWindow, double xoffset, double yoffset);
+
+    /**
+     * Custom glfw callback for key input.
+     * @param glfwWindow The glfw window handle that received the event.
+     * @param keycode The keyboard key that was pressed or released.
+     * @param scancode The system-specific scancode of the key.
+     * @param action The action that was taken.
+     * @param mods The modifier keys that were pressed.
+    */
+    static void KeyCallback(GLFWwindow* glfwWindow, int keycode, int scancode, int action, int mods);
+
+    /**
+     * Custom glfw callback for character input.
+     * @param glfwWindow The glfw window handle that received the event.
+     * @param c The Unicode code point of the character.
+    */
+    static void CharCallback(GLFWwindow* glfwWindow, unsigned int c);
+
+    /**
+     * Custom glfw callback for monitor changes.
+     * @param monitor The monitor that was connected or disconnected.
+     * @param event The event that occurred.
+    */
+    static void MonitorCallback(GLFWmonitor* monitor, int event);
+
+protected:
+    // Virtual User Callbacks
+    // -------------------------------------------------------------------------
+    /**
+     * Called when the window is about to render.
+     * Override this method to implement custom update logic before rendering.
+     * @note The ImGui context will be CORRECT during this callback.
+    */
+    virtual void onUpdate() {}
+
+    /**
+     * Called when the window is rendering.
+     * Override this method to implement custom rendering logic.
+     * @note The ImGui context will be CORRECT during this callback.
+    */
+    virtual void onRender() {}
 };
 
 } // namespace Prism
