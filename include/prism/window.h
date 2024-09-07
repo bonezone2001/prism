@@ -115,10 +115,22 @@ public:
     bool shouldClose() const;
 
     /**
+     * Sets the window visibility.
+     * @param visible true to show the window; false to hide it.
+    */
+    void setVisible(bool visible);
+
+    /**
      * Checks if the window is currently shown.
      * @return true if the window is shown; otherwise, false.
     */
     bool isShown() const;
+
+    /**
+     * Focuses the window.
+     * This method brings the window to the front and focuses it.
+    */
+    void focus();
 
     /**
      * Checks if the window is currently focused.
@@ -127,10 +139,22 @@ public:
     bool isFocused() const;
 
     /**
+     * Minimizes the window.
+     * This method minimizes the window to the taskbar.
+    */
+    void minimize();
+
+    /**
      * Checks if the window is minimized.
      * @return true if the window is minimized; otherwise, false.
     */
     bool isMinimized() const;
+
+    /**
+     * Maximizes the window.
+     * This method maximizes the window to fill the screen.
+    */
+    void maximize();
 
     /**
      * Checks if the window is maximized.

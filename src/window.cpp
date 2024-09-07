@@ -47,6 +47,9 @@ Window::Window(WindowSettings settings) :
     // We want a contextless window since we're using Vulkan.
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
+    // Enforce it being hidden or shown on creation.
+    glfwWindowHint(GLFW_VISIBLE, settings.showOnCreate);
+
     // Get the monitor the parent window is on. If there is no parent, use the primary monitor.
     GLFWmonitor* monitor = nullptr;
     if (settings.parent == nullptr)
@@ -155,10 +158,6 @@ Window::Window(WindowSettings settings) :
     // Create the font texture
     ImGui_ImplVulkan_CreateFontsTexture();
 
-    // Show the window if the user wants it to be shown on creation.
-    if (settings.showOnCreate)
-        glfwShowWindow(windowHandle);
-
     // Restore the previous contexts
     // TODO: Is this really doing what I'm expecting? I'll have to come back to this.
     if (backupImGuiContext) ImGui::SetCurrentContext(backupImGuiContext);
@@ -204,7 +203,7 @@ void Window::render()
     ImGui::Render();
     ImDrawData* mainDrawData = ImGui::GetDrawData();
     
-    ImVec4 clearColor = ImVec4(1.f, 0.f, 1.f, 0.25f);
+    ImVec4 clearColor = ImVec4(0.f, 0.f, 0.f, 0.f);
     const bool windowShouldRender = mainDrawData->DisplaySize.x > 0.f && mainDrawData->DisplaySize.y > 0.f;
     imguiWindow->ClearValue.color.float32[0] = clearColor.x * clearColor.w; // Red
     imguiWindow->ClearValue.color.float32[1] = clearColor.y * clearColor.w; // Green
@@ -234,6 +233,16 @@ bool Window::isShown() const
     return glfwGetWindowAttrib(windowHandle, GLFW_VISIBLE);
 }
 
+void Window::focus()
+{
+    glfwFocusWindow(windowHandle);
+}
+
+void Window::minimize()
+{
+    glfwIconifyWindow(windowHandle);
+}
+
 bool Window::isFocused() const
 {
     return glfwGetWindowAttrib(windowHandle, GLFW_FOCUSED);
@@ -244,6 +253,11 @@ bool Window::isMinimized() const
     return glfwGetWindowAttrib(windowHandle, GLFW_ICONIFIED);
 }
 
+void Window::maximize()
+{
+    glfwMaximizeWindow(windowHandle);
+}
+
 bool Window::isMaximized() const
 {
     return glfwGetWindowAttrib(windowHandle, GLFW_MAXIMIZED);
@@ -252,6 +266,14 @@ bool Window::isMaximized() const
 bool Window::shouldClose() const
 {
     return glfwWindowShouldClose(windowHandle);
+}
+
+void Window::setVisible(bool visible)
+{
+    if (visible)
+        glfwShowWindow(windowHandle);
+    else
+        glfwHideWindow(windowHandle);
 }
 
 void Window::close()

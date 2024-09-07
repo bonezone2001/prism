@@ -66,10 +66,12 @@ public:
      * @param args The arguments to pass to the window's constructor.
     */
     template<typename T, typename... Args>
-    void addWindow(Args&&... args)
+    std::shared_ptr<T> addWindow(Args&&... args)
     {
         static_assert(std::is_base_of<Prism::Window, T>::value, "Added type is not subclass of a Prism::Window!");
-        appWindows.emplace_back(std::make_shared<T>(std::forward<Args>(args)...));
+        auto window = std::make_shared<T>(std::forward<Args>(args)...);
+        appWindows.emplace_back(window);
+        return window;
     }
 
     // Getters
