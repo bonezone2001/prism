@@ -48,10 +48,83 @@ Creating native C++ GUI apps is cumbersome when all the mature options seem to l
 <!-- USAGE EXAMPLES -->
 ## Usage and Examples
 
-TODO: The library has yet to be implemented, but I do the README first for absolutely no reason.
+Here is how you create the application entry point, this is optional and you can instead create an application instance yourself. [Check here](https://github.com/bonezone2001/prism/blob/master/include/prism/entry_point.h)
+```cpp
+#include "windows/main_window.h"
+#include "prism/entry_point.h"
+
+Prism::Application* Prism::AppCreate(int argc, char** argv)
+{
+    Prism::Application* app = new Prism::Application("Prism App");
+    app->addWindow<MainWindow>();
+
+    return app;
+}
+```
+
+For each window you create, simply create a class and override it's methods.
+```cpp
+#pragma once
+#include "prism/prism.h"
+
+class MainWindow : public Prism::Window
+{
+public:
+    MainWindow();
+    MainWindow(Prism::WindowSettings settings);
+    ~MainWindow();
+
+    void onUpdate() override;
+    void onRender() override;
+};
+```
+
+Here is an example implementation
+```cpp
+#include "main_window.h"
+
+// Here is just a sample of a window that can be created with Prism.
+MainWindow::MainWindow(int test)
+    : Prism::Window({
+        .width = 1000,
+        .height = 1000,
+        .title = "Prism Window",
+        .resizable = false,
+        .fullscreen = false,
+        .useCustomTitlebar = false,
+        .showOnCreate = true,
+        .parent = nullptr
+    }),
+    test(test)
+{}
+
+// 
+MainWindow::MainWindow(Prism::WindowSettings settings)
+    : Prism::Window(settings)
+{}
+
+MainWindow::~MainWindow()
+{
+    // The deconstructor is called when the window is destroyed.
+}
+
+void MainWindow::onUpdate()
+{
+    // Any code you want to run before rendering goes here.
+}
+
+void MainWindow::onRender()
+{
+    // Any code related to rendering goes here.
+
+    ImGui::Begin("Test Window");
+    ImGui::Text("Test: %d", test);
+    ImGui::End();
+}
+```
+Note: the constructor here is slightly different (a test number being passed for the sake of example)
 
 <br>
-
 
 <!-- CONTRIBUTING -->
 ## Contributing
