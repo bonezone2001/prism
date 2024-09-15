@@ -42,7 +42,8 @@ void Application::run()
         cullClosedWindowsExitOnMainDeath();
 
         // Render the windows
-        for (auto& window : appWindows)
+        std::vector<std::shared_ptr<Window>> appWindowsCopy = appWindows; // Quick fix for windows closing/opening during render, revisit later
+        for (auto& window : appWindowsCopy)
             window->render();
     }
 }

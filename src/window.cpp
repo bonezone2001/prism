@@ -234,6 +234,10 @@ Window::~Window()
 
 void Window::render()
 {
+    // Check context is valid before rendering
+    if (!imguiContext)
+        return;
+
     // Swap contexts
     ImGuiContext* backupContext = ImGui::GetCurrentContext();
     ImGui::SetCurrentContext(imguiContext);
