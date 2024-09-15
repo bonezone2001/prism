@@ -29,16 +29,48 @@ Renderer::~Renderer()
 
 void Renderer::shutdown()
 {
-    vkDestroyDescriptorPool(device, descriptorPool, allocator);
+    // Wait for the device to finish all operations
+    if (device != VK_NULL_HANDLE)
+        vkDeviceWaitIdle(device);
+        
+    // Destroy the descriptor pool
+    if (descriptorPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(device, descriptorPool, allocator);
+        descriptorPool = VK_NULL_HANDLE;
+    }
+
+    // Destroy the pipeline cache
+    if (pipelineCache != VK_NULL_HANDLE) {
+        vkDestroyPipelineCache(device, pipelineCache, allocator);
+        pipelineCache = VK_NULL_HANDLE;
+    }
+
+    // Destroy the logical device
+    if (device != VK_NULL_HANDLE) {
+        vkDestroyDevice(device, allocator);
+        device = VK_NULL_HANDLE;
+    }
 
 #ifdef VULKAN_DEBUG_REPORT
     // Remove the debug report callback
-    auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
-    vkDestroyDebugReportCallbackEXT(instance, debugReport, allocator);
+    if (debugReport != VK_NULL_HANDLE) {
+        auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
+        vkDestroyDebugReportCallbackEXT(instance, debugReport, allocator);
+        debugReport = VK_NULL_HANDLE;
+    }
 #endif
 
-    vkDestroyDevice(device, allocator);
-    vkDestroyInstance(instance, allocator);
+    // Destroy the Vulkan instance
+    if (instance != VK_NULL_HANDLE)
+    {
+        vkDestroyInstance(instance, allocator);
+        instance = VK_NULL_HANDLE;
+    }
+    
+    // Reset other members
+    physicalDevice = VK_NULL_HANDLE;
+    queueFamilyIndex = UINT32_MAX;
+    queue = VK_NULL_HANDLE;
 }
 
 void Renderer::createInstance()

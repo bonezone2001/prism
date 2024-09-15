@@ -164,37 +164,72 @@ Window::Window(WindowSettings settings) :
 
 Window::~Window()
 {
-    // Shutdown ImGui
+    // Wait for the device to finish all operations
+    auto renderer = Application::Get().getRenderer();
+    vkDeviceWaitIdle(renderer->getDevice());
+
+    // Clean up ImGui
     if (imguiContext) {
         // Set current context
         ImGuiContext* backupContext = ImGui::GetCurrentContext();
         ImGui::SetCurrentContext(imguiContext);
         imguiContext = nullptr;
 
-        // Wait for the device to be idle
-        auto renderer = Application::Get().getRenderer();
-        vkDeviceWaitIdle(renderer->getDevice());
-
-        // Shutdown context
+        // Shutdown everything within the context
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplGlfw_Shutdown();
+
+        // Destroy the window context (before full context destruction)
+        ImGui_ImplVulkanH_DestroyWindow(
+            renderer->getInstance(),
+            renderer->getDevice(),
+            imguiWindow,
+            renderer->getAllocator()
+        );
+
+        // Destroy the context
         ImGui::DestroyContext();
 
         // Restore the previous context if it exists
         if (backupContext) ImGui::SetCurrentContext(backupContext);
     }
 
-    // Destroy the glfw window
+    // Remove the custom window procedures (just in case, don't want null pointers)
+    #ifdef _WIN32
+    if (settings.useCustomTitlebar) {
+        HWND hWnd = glfwGetWin32Window(windowHandle);
+        if (wndProcMap.find(hWnd) != wndProcMap.end()) {
+            SetWindowLongPtr(hWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(wndProcMap[hWnd]));
+            wndProcMap.erase(hWnd);
+        }
+    }
+    #endif
+
+    // Clean up GLFW resources
     if (windowHandle) {
         glfwDestroyWindow(windowHandle);
         windowHandle = nullptr;
     }
 
-    // Destroy the imgui window context
-    if (imguiWindow) {
-        delete imguiWindow;
-        imguiWindow = nullptr;
+    // Clean up allocated command buffers
+    for (auto& cmdBuf : allocatedCommandBuffers) {
+        if (!cmdBuf.empty())
+            vkFreeCommandBuffers(
+                renderer->getDevice(),
+                imguiWindow->Frames[0].CommandPool,
+                (uint32_t)cmdBuf.size(),
+                cmdBuf.data()
+            );
     }
+
+    // Clear the resource free queue
+    for (auto& queue : resourceFreeQueue) {
+        for (auto& func : queue)
+            func();
+        queue.clear();
+    }
+
+    delete imguiWindow;
 }
 
 void Window::render()
@@ -540,6 +575,10 @@ void Window::setupForCustomTitlebar()
 {
 #ifdef _WIN32
         HWND hWnd = glfwGetWin32Window(windowHandle);
+        if (hWnd == nullptr) {
+            fmt::print("Failed to get the window handle for custom titlebar setup.\n");
+            return;
+        }
 
         LONG_PTR lStyle = GetWindowLongPtr(hWnd, GWL_STYLE);
         lStyle |= WS_THICKFRAME;
