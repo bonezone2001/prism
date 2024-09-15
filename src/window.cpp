@@ -474,7 +474,6 @@ void Window::frameRender(ImDrawData* drawData)
     VkSemaphore renderCompleteSemaphore = imguiWindow->FrameSemaphores[imguiWindow->SemaphoreIndex].RenderCompleteSemaphore;
     err = vkAcquireNextImageKHR(renderer->getDevice(), imguiWindow->Swapchain, UINT64_MAX, imageAcquiredSemaphore, VK_NULL_HANDLE, &imguiWindow->FrameIndex);
     if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR) {
-        fmt::print("Window::frameRender: Swapchain needs to be rebuilt.\n");
         swapchainNeedRebuild = true;
 		return;
 	}
@@ -562,7 +561,6 @@ void Window::framePresent()
 	
     VkResult err = vkQueuePresentKHR(renderer->getQueue(), &info);
 	if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR) {
-        fmt::print("Window::framePresent: Swapchain needs to be rebuilt.\n");
         swapchainNeedRebuild = true;
 		return;
 	}
