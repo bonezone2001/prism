@@ -27,9 +27,10 @@ Application::Application(std::string name)
 
 Application::~Application()
 {
-    stop();                 // Stop the application
-    appWindows.clear();     // Destroy the windows
-    renderer.reset();       // Destroy the renderer
+    stop();
+    for (auto& window : std::ranges::reverse_view(appWindows))
+        window.reset();
+    renderer.reset();
 }
 
 void Application::run()
@@ -62,7 +63,7 @@ void Application::cullClosedWindowsExitOnMainDeath()
             }
 
             // Remove the window
-            appWindows.erase(appWindows.begin() + i);
+            appWindows.erase(appWindows.begin() + (int64_t)i);
         }
     }
 }

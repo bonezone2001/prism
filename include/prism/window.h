@@ -73,8 +73,6 @@ protected:
 
 private:
     GLFWwindow* windowHandle = nullptr;                            ///< Handle to the GLFW window. (NOT NATIVE HANDLE)
-    float lastFrameTime = 0.0f;                                    ///< Time of the last frame.
-    float deltaTime = 0.0f;                                        ///< Delta between frame end and start.
 
 public:
     /// Construct a new Window object.
@@ -176,6 +174,16 @@ private:
      * This method sets a non-standard theme for ImGui, adding a unique visual style.
     */
     void setDefaultTheme();
+
+    // rebuildSwapchain
+    /**
+     * Rebuilds the swapchain for the window.
+     *
+     * This method is called when the swapchain needs to be rebuilt due to a window resize or other event.
+     * It will recreate the swapchain and associated resources.
+     * @note This method is called automatically inside the render() method.
+    */
+    void rebuildSwapchain();
 
     /**
      * Renders ImGui's content to command buffers.
@@ -304,14 +312,14 @@ protected:
      * Override this method to implement custom update logic before rendering.
      * @note The ImGui context will be CORRECT during this callback.
     */
-    virtual void onUpdate() {}
+    virtual void onUpdate(float deltaTime) {}
 
     /**
      * Called when the window is rendering.
      * Override this method to implement custom rendering logic.
      * @note The ImGui context will be CORRECT during this callback.
     */
-    virtual void onRender() {}
+    virtual void onRender(float deltaTime) {}
 };
 
 } // namespace Prism

@@ -159,7 +159,6 @@ Window::Window(WindowSettings settings) :
     ImGui_ImplVulkan_CreateFontsTexture();
 
     // Restore the previous contexts
-    // TODO: Is this really doing what I'm expecting? I'll have to come back to this.
     if (backupImGuiContext) ImGui::SetCurrentContext(backupImGuiContext);
 }
 
@@ -203,17 +202,22 @@ void Window::render()
     // Swap contexts
     ImGuiContext* backupContext = ImGui::GetCurrentContext();
     ImGui::SetCurrentContext(imguiContext);
-
-    // TODO: Resize swap chain
+    
+    // Update the swapchain if needed
+    if (swapchainNeedRebuild)
+        rebuildSwapchain();
 
     // Start ImGui Frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    // Get delta time from imgui
+    ImGuiIO& io = ImGui::GetIO();
+    
     // Run update logic, then render ImGui
-    onUpdate();
-    onRender();
+    onUpdate(io.DeltaTime);
+    onRender(io.DeltaTime);
 
     // Render
     ImGui::Render();
@@ -231,8 +235,6 @@ void Window::render()
         renderAndPresent(mainDrawData);
     else
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
-
-    // TODO: Do delta time here
 
     // Restore the previous context
     if (backupContext) ImGui::SetCurrentContext(backupContext);
@@ -395,6 +397,39 @@ void Window::installGlfwCallbacks()
     glfwSetMonitorCallback(MonitorCallback);
 }
 
+void Window::rebuildSwapchain()
+{
+    // Get the new window size
+    int width, height;
+    glfwGetFramebufferSize(windowHandle, &width, &height);
+
+    // If valid size, rebuild the swapchain
+    if (width > 0 && height > 0) {
+        // Wait for the device to be idle
+        auto renderer = Application::Get().getRenderer();
+        vkDeviceWaitIdle(renderer->getDevice());
+
+        // Rebuild the swapchain
+        ImGui_ImplVulkan_SetMinImageCount(minImageCount);
+        ImGui_ImplVulkanH_CreateOrResizeWindow(
+            renderer->getInstance(),
+            renderer->getPhysicalDevice(),
+            renderer->getDevice(),
+            imguiWindow,
+            renderer->getQueueFamilyIndex(),
+            renderer->getAllocator(),
+            width, height, minImageCount
+        );
+
+        // Reallocate the command buffers
+        allocatedCommandBuffers.clear();
+        allocatedCommandBuffers.resize(imguiWindow->ImageCount);
+
+        // Reset the swapchain flag
+        swapchainNeedRebuild = false;
+    }
+}
+
 void Window::frameRender(ImDrawData* drawData)
 {
     VkResult err;
@@ -430,7 +465,7 @@ void Window::frameRender(ImDrawData* drawData)
 
     auto& cmdBuf = allocatedCommandBuffers[imguiWindow->FrameIndex];
     if (!cmdBuf.empty()) {
-        vkFreeCommandBuffers(renderer->getDevice(), fd->CommandPool, static_cast<uint32_t>(cmdBuf.size()), cmdBuf.data());
+        vkFreeCommandBuffers(renderer->getDevice(), fd->CommandPool, (uint32_t)cmdBuf.size(), cmdBuf.data());
         cmdBuf.clear();
     }
 
