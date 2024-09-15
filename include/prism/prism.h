@@ -13,8 +13,7 @@
 #include "prism/renderer.h"
 #include "prism/window.h"
 
-namespace Prism
-{
+namespace Prism {
 
 class PRISM_EXPORT Application
 {
@@ -77,17 +76,11 @@ public:
     // Getters
     // -------------------------------------------------------------------------
     bool isRunning() const { return running; }                                      ///< @return bool Is the application running?
-    std::shared_ptr<Renderer> getRenderer() const { return renderer; }              ///< @return std::shared_ptr<Renderer> The renderer for the application.
     std::string getName() const { return name; }                                    ///< @return std::string The name of the application.
+    std::shared_ptr<Renderer> getRenderer() const { return renderer; }              ///< @return std::shared_ptr<Renderer> The renderer for the application.
     std::vector<std::shared_ptr<Window>> getWindows() const { return appWindows; }  ///< @return std::vector<std::shared_ptr<Window>> The windows in the application.
 
 private:
-    /**
-     * Shutdown the application.
-     * This will essentially clean up any resources used by the application.
-    */
-    virtual void shutdown();
-
     /**
      * Remove windows that have been closed.
     */

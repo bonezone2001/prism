@@ -28,8 +28,8 @@ Application::Application(std::string name)
 Application::~Application()
 {
     stop();                 // Stop the application
-    renderer.reset();       // Destroy the renderer
     appWindows.clear();     // Destroy the windows
+    renderer.reset();       // Destroy the renderer
 }
 
 void Application::run()
@@ -49,13 +49,6 @@ void Application::run()
 void Application::stop()
 {
     running = false;
-}
-
-void Application::shutdown()
-{
-    // Delete self to trigger the destructors
-    // We'll come back to this later, this'll do for now.
-    delete this;
 }
 
 void Application::cullClosedWindowsExitOnMainDeath()

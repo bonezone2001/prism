@@ -165,21 +165,37 @@ Window::Window(WindowSettings settings) :
 
 Window::~Window()
 {
-    // Set current context
-    ImGuiContext* backupContext = ImGui::GetCurrentContext();
-    ImGui::SetCurrentContext(imguiContext);
-
     // Shutdown ImGui
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    if (imguiContext) {
+        // Set current context
+        ImGuiContext* backupContext = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext(imguiContext);
+        imguiContext = nullptr;
 
-    // Restore the previous context
-    if (backupContext) ImGui::SetCurrentContext(backupContext);
+        // Wait for the device to be idle
+        auto renderer = Application::Get().getRenderer();
+        vkDeviceWaitIdle(renderer->getDevice());
 
-    // Destroy the window
-    glfwDestroyWindow(windowHandle);
-    delete imguiWindow;
+        // Shutdown context
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+
+        // Restore the previous context if it exists
+        if (backupContext) ImGui::SetCurrentContext(backupContext);
+    }
+
+    // Destroy the glfw window
+    if (windowHandle) {
+        glfwDestroyWindow(windowHandle);
+        windowHandle = nullptr;
+    }
+
+    // Destroy the imgui window context
+    if (imguiWindow) {
+        delete imguiWindow;
+        imguiWindow = nullptr;
+    }
 }
 
 void Window::render()
