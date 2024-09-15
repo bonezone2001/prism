@@ -17,18 +17,19 @@
 
 namespace Prism
 {
-    class Application* AppCreate(int argc, char** argv);
-};
+    std::unique_ptr<class Application> AppCreate(int argc, char** argv);
+}
 
 int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow)
 {
     // Create the application
-    Prism::Application* app = Prism::AppCreate(__argc, __argv);
+    auto app = Prism::AppCreate(__argc, __argv);
 
     // Run the application
     app->run();
 
-    // Clean up
-    delete app;
+    // Shutdown the application
+    app.reset();
+
     return 0;
 }
